@@ -6,10 +6,7 @@ import {
   HeroSection, 
   ContentRow, 
   MovieModal,
-  LoadingSpinner,
-  SearchResults,
-  UserProfiles,
-  MobileNav
+  LoadingSpinner 
 } from './components';
 import './App.css';
 
@@ -26,8 +23,6 @@ const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/original';
 // Netflix Content Categories
 const CONTENT_CATEGORIES = [
   { id: 'trending', title: 'Trending Now', endpoint: '/trending/all/day' },
-  { id: 'continue-watching', title: 'Continue Watching', endpoint: '/movie/popular', isContinue: true },
-  { id: 'my-list', title: 'My List', endpoint: '/movie/top_rated', isMyList: true },
   { id: 'popular-movies', title: 'Popular Movies', endpoint: '/movie/popular' },
   { id: 'top-rated', title: 'Top Rated', endpoint: '/movie/top_rated' },
   { id: 'netflix-originals', title: 'Netflix Originals', endpoint: '/discover/tv?with_networks=213' },
@@ -35,9 +30,7 @@ const CONTENT_CATEGORIES = [
   { id: 'comedy', title: 'Comedy Movies', endpoint: '/discover/movie?with_genres=35' },
   { id: 'horror', title: 'Horror Movies', endpoint: '/discover/movie?with_genres=27' },
   { id: 'romance', title: 'Romance Movies', endpoint: '/discover/movie?with_genres=10749' },
-  { id: 'documentaries', title: 'Documentaries', endpoint: '/discover/movie?with_genres=99' },
-  { id: 'sci-fi', title: 'Sci-Fi Movies', endpoint: '/discover/movie?with_genres=878' },
-  { id: 'thriller', title: 'Thriller Movies', endpoint: '/discover/movie?with_genres=53' }
+  { id: 'documentaries', title: 'Documentaries', endpoint: '/discover/movie?with_genres=99' }
 ];
 
 const NetflixClone = () => {
@@ -46,34 +39,6 @@ const NetflixClone = () => {
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [showSearch, setShowSearch] = useState(false);
-  const [myList, setMyList] = useState(() => {
-    const saved = localStorage.getItem('netflix-my-list');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [continueWatching, setContinueWatching] = useState(() => {
-    const saved = localStorage.getItem('netflix-continue-watching');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem('netflix-current-user');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [showProfiles, setShowProfiles] = useState(!currentUser);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [showMobileNav, setShowMobileNav] = useState(false);
-
-  // Handle window resize for mobile detection
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // API Helper function with key rotation
   const fetchFromTMDB = async (endpoint, retryCount = 0) => {
@@ -84,6 +49,7 @@ const NetflixClone = () => {
       const response = await fetch(url);
       
       if (response.status === 429 && retryCount < TMDB_API_KEYS.length - 1) {
+        // Rate limited, try next API key
         currentKeyIndex = (currentKeyIndex + 1) % TMDB_API_KEYS.length;
         console.log(`Rate limited, switching to API key index: ${currentKeyIndex}`);
         return fetchFromTMDB(endpoint, retryCount + 1);
@@ -99,36 +65,6 @@ const NetflixClone = () => {
       throw error;
     }
   };
-
-  // Search functionality
-  const searchMovies = async (query) => {
-    if (!query.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    try {
-      const data = await fetchFromTMDB(`/search/multi?query=${encodeURIComponent(query)}`);
-      const processedResults = data.results?.slice(0, 20).map(processContent) || [];
-      setSearchResults(processedResults);
-    } catch (error) {
-      console.error('Search error:', error);
-      setSearchResults([]);
-    }
-  };
-
-  // Debounced search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchQuery) {
-        searchMovies(searchQuery);
-      } else {
-        setSearchResults([]);
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
 
   // Get video/trailer for content
   const getContentVideos = async (contentId, mediaType = 'movie') => {
@@ -147,7 +83,7 @@ const NetflixClone = () => {
   // Enhanced content processing
   const processContent = (item) => {
     const isMovie = item.media_type === 'movie' || item.title;
-    const content = {
+    return {
       id: item.id,
       title: isMovie ? item.title : item.name,
       overview: item.overview,
@@ -156,57 +92,8 @@ const NetflixClone = () => {
       rating: item.vote_average,
       releaseDate: isMovie ? item.release_date : item.first_air_date,
       mediaType: isMovie ? 'movie' : 'tv',
-      originalData: item,
-      isInMyList: myList.some(saved => saved.id === item.id),
-      watchProgress: continueWatching.find(watched => watched.id === item.id)?.progress || 0
+      originalData: item
     };
-
-    return content;
-  };
-
-  // My List management
-  const toggleMyList = (content) => {
-    const isInList = myList.some(item => item.id === content.id);
-    let newMyList;
-    
-    if (isInList) {
-      newMyList = myList.filter(item => item.id !== content.id);
-    } else {
-      newMyList = [...myList, content];
-    }
-    
-    setMyList(newMyList);
-    localStorage.setItem('netflix-my-list', JSON.stringify(newMyList));
-    
-    // Update content rows to reflect changes
-    updateContentRowsMyListStatus(content.id, !isInList);
-  };
-
-  // Add to continue watching
-  const addToContinueWatching = (content, progress = 0.1) => {
-    const existingIndex = continueWatching.findIndex(item => item.id === content.id);
-    let newContinueWatching;
-    
-    if (existingIndex >= 0) {
-      newContinueWatching = [...continueWatching];
-      newContinueWatching[existingIndex] = { ...content, progress, lastWatched: Date.now() };
-    } else {
-      newContinueWatching = [{ ...content, progress, lastWatched: Date.now() }, ...continueWatching.slice(0, 19)];
-    }
-    
-    setContinueWatching(newContinueWatching);
-    localStorage.setItem('netflix-continue-watching', JSON.stringify(newContinueWatching));
-  };
-
-  // Update my list status in content rows
-  const updateContentRowsMyListStatus = (contentId, isInList) => {
-    const updatedRows = { ...contentRows };
-    Object.keys(updatedRows).forEach(rowKey => {
-      updatedRows[rowKey].content = updatedRows[rowKey].content.map(item =>
-        item.id === contentId ? { ...item, isInMyList: isInList } : item
-      );
-    });
-    setContentRows(updatedRows);
   };
 
   // Load all content
@@ -221,6 +108,7 @@ const NetflixClone = () => {
           const heroItem = trendingData.results[0];
           const processedHero = processContent(heroItem);
           
+          // Get trailer for hero content
           const trailerKey = await getContentVideos(heroItem.id, heroItem.media_type);
           processedHero.trailerKey = trailerKey;
           
@@ -230,20 +118,12 @@ const NetflixClone = () => {
         // Load content rows
         const rowPromises = CONTENT_CATEGORIES.map(async (category) => {
           try {
-            let processedResults = [];
-            
-            if (category.isContinue) {
-              processedResults = continueWatching.slice(0, 20);
-            } else if (category.isMyList) {
-              processedResults = myList.slice(0, 20);
-            } else {
-              const data = await fetchFromTMDB(category.endpoint);
-              processedResults = data.results?.slice(0, 20).map(processContent) || [];
-            }
-            
+            const data = await fetchFromTMDB(category.endpoint);
+            const processedResults = data.results?.slice(0, 20).map(processContent) || [];
             return { [category.id]: { ...category, content: processedResults } };
           } catch (error) {
             console.error(`Error loading ${category.title}:`, error);
+            // Return mock data on error
             return { [category.id]: { ...category, content: getMockContent(category.id) } };
           }
         });
@@ -255,6 +135,7 @@ const NetflixClone = () => {
       } catch (error) {
         console.error('Error loading content:', error);
         setError('Failed to load content. Using fallback data.');
+        // Load mock data as fallback
         setHeroContent(getMockHeroContent());
         setContentRows(getMockContentRows());
       } finally {
@@ -262,12 +143,10 @@ const NetflixClone = () => {
       }
     };
 
-    if (!showProfiles) {
-      loadContent();
-    }
-  }, [showProfiles, myList, continueWatching]);
+    loadContent();
+  }, []);
 
-  // Mock data fallback functions
+  // Mock data fallback
   const getMockHeroContent = () => ({
     id: 1,
     title: "Stranger Things",
@@ -288,7 +167,7 @@ const NetflixClone = () => {
       { id: 4, title: "Pulp Fiction", overview: "The lives of two mob hitmen intersect.", backdrop: "https://image.tmdb.org/t/p/original/4cDFJr4HnXN5AdPw4AKrmLlMWdO.jpg", poster: "https://image.tmdb.org/t/p/original/d5iIlFn5s0ImszYzBPb8JPIfbXD.jpg", rating: 8.9, releaseDate: "1994-10-14", mediaType: "movie" },
       { id: 5, title: "The Matrix", overview: "A computer hacker learns about reality.", backdrop: "https://image.tmdb.org/t/p/original/fNG7i7RqMErkcqhohV2a6cV1Ehy.jpg", poster: "https://image.tmdb.org/t/p/original/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg", rating: 8.7, releaseDate: "1999-03-31", mediaType: "movie" }
     ];
-    return mockMovies.slice(0, 10).map(processContent);
+    return mockMovies.slice(0, 10);
   };
 
   const getMockContentRows = () => {
@@ -303,27 +182,14 @@ const NetflixClone = () => {
   const handleMovieSelect = async (movie) => {
     const enhancedMovie = { ...movie };
     
+    // Get trailer if not already loaded
     if (!enhancedMovie.trailerKey) {
       const trailerKey = await getContentVideos(movie.id, movie.mediaType);
       enhancedMovie.trailerKey = trailerKey;
     }
     
-    // Add to continue watching when playing
-    addToContinueWatching(movie);
-    
     setSelectedMovie(enhancedMovie);
   };
-
-  // User profile selection
-  const handleUserSelect = (user) => {
-    setCurrentUser(user);
-    setShowProfiles(false);
-    localStorage.setItem('netflix-current-user', JSON.stringify(user));
-  };
-
-  if (showProfiles) {
-    return <UserProfiles onUserSelect={handleUserSelect} />;
-  }
 
   if (loading) {
     return (
@@ -339,67 +205,31 @@ const NetflixClone = () => {
 
   return (
     <div className="min-h-screen bg-netflix-black text-white">
-      <Header 
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        showSearch={showSearch}
-        setShowSearch={setShowSearch}
-        currentUser={currentUser}
-        onProfileClick={() => setShowProfiles(true)}
-        isMobile={isMobile}
-        showMobileNav={showMobileNav}
-        setShowMobileNav={setShowMobileNav}
-      />
-
-      {isMobile && (
-        <MobileNav 
-          isOpen={showMobileNav}
-          onClose={() => setShowMobileNav(false)}
-          currentUser={currentUser}
-          onProfileClick={() => setShowProfiles(true)}
+      <Header />
+      
+      {heroContent && (
+        <HeroSection 
+          content={heroContent}
+          onPlayClick={() => handleMovieSelect(heroContent)}
         />
       )}
 
-      {showSearch && searchResults.length > 0 ? (
-        <SearchResults 
-          results={searchResults}
-          query={searchQuery}
-          onMovieClick={handleMovieSelect}
-          onToggleMyList={toggleMyList}
-        />
-      ) : (
-        <>
-          {heroContent && (
-            <HeroSection 
-              content={heroContent}
-              onPlayClick={() => handleMovieSelect(heroContent)}
-              onToggleMyList={toggleMyList}
-              isMobile={isMobile}
-            />
-          )}
-
-          <main className={`relative z-10 ${heroContent ? '-mt-32' : 'pt-24'}`}>
-            {Object.values(contentRows).map((row) => (
-              <ContentRow
-                key={row.id}
-                title={row.title}
-                content={row.content}
-                onMovieClick={handleMovieSelect}
-                onToggleMyList={toggleMyList}
-                isMobile={isMobile}
-              />
-            ))}
-          </main>
-        </>
-      )}
+      <main className="relative z-10 -mt-32">
+        {Object.values(contentRows).map((row) => (
+          <ContentRow
+            key={row.id}
+            title={row.title}
+            content={row.content}
+            onMovieClick={handleMovieSelect}
+          />
+        ))}
+      </main>
 
       <AnimatePresence>
         {selectedMovie && (
           <MovieModal
             movie={selectedMovie}
             onClose={() => setSelectedMovie(null)}
-            onToggleMyList={toggleMyList}
-            isMobile={isMobile}
           />
         )}
       </AnimatePresence>
