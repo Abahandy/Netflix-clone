@@ -37,7 +37,7 @@ export const Header = () => {
         {/* Logo and Navigation */}
         <div className="flex items-center space-x-8">
           <div className="text-netflix-red text-2xl font-bold tracking-wider">
-            NETFLIX
+            ANDYBEXT
           </div>
           
           <nav className="hidden md:flex space-x-6">
