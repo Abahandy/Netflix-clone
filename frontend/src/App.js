@@ -238,7 +238,7 @@ const NetflixClone = () => {
       <footer className="mt-20 py-10 px-4 bg-netflix-black text-gray-400">
         <div className="max-w-6xl mx-auto text-center">
           <p className="text-sm">
-            This is a Netflix clone for demonstration purposes. All content is fetched from TMDB API.
+            This is an ANDYBEXT streaming platform for demonstration purposes. All content is fetched from TMDB API.
           </p>
           <p className="text-xs mt-2 opacity-60">
             Made with ❤️ using React, TailwindCSS, and TMDB API
