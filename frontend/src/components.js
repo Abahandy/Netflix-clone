@@ -444,7 +444,7 @@ export const LoadingSpinner = () => {
         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
         className="w-8 h-8 border-2 border-netflix-red border-t-transparent rounded-full"
       />
-      <span className="ml-3 text-white">Loading Netflix...</span>
+      <span className="ml-3 text-white">Loading ANDYBEXT...</span>
     </div>
   );
 };
